@@ -5,6 +5,9 @@
 #Prompts for password
 #Counts failed attempts
 #Captures webcam photo on 3rd failure
+
+#over what period of time?
+
 #Saves photo silently with timestamp
 #Works reliably on Windows 10/11
 #Step 1: Install Required Library
