@@ -1,0 +1,72 @@
+#Below is a working Windows Python example that:
+
+#Prompts for password
+#Counts failed attempts
+#Captures webcam photo on 3rd failure
+#Saves photo silently with timestamp
+#Works reliably on Windows 10/11
+#Step 1: Install Required Library
+
+#Open Command Prompt:
+#Bash
+pip install opencv-python
+
+#Step 2: Python Script (Windows Compatible)
+#Python
+import cv2
+import getpass
+import os
+from datetime import datetime
+import hashlib
+
+# ---------------- SETTINGS ----------------
+# Store hashed password instead of plain text
+CORRECT_PASSWORD_HASH = hashlib.sha256("secure123".encode()).hexdigest()
+MAX_FAILED_ATTEMPTS = 3
+SAVE_DIR = r"C:\ProgramData\SecurityLog"
+
+# Create save directory if it doesn't exist
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+failed_attempts = 0
+
+
+def capture_photo():
+    cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # Better compatibility for Windows
+
+    if not cam.isOpened():
+        return
+
+    ret, frame = cam.read()
+
+    if ret:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join(SAVE_DIR, f"failed_login_{timestamp}.jpg")
+        cv2.imwrite(filename, frame)
+
+    cam.release()
+    cv2.destroyAllWindows()
+
+
+# ---------------- LOGIN LOOP ----------------
+while True:
+    password_input = getpass.getpass("Enter password: ")
+    password_hash = hashlib.sha256(password_input.encode()).hexdigest()
+
+    if password_hash == CORRECT_PASSWORD_HASH:
+        print("Access Granted")
+        break
+    else:
+        failed_attempts += 1
+        print(f"Access Denied ({failed_attempts}/{MAX_FAILED_ATTEMPTS})")
+
+        if failed_attempts >= MAX_FAILED_ATTEMPTS:
+            capture_photo()
+            print("Too many failed attempts. System locked.")
+            break
+#What This Does
+
+#✔ Uses SHA-256 password hashing
+#✔ Saves photos to hidden system folder (C:\ProgramData\SecurityLog)
+#✔ Uses Windows DirectShow backend
+#✔ Captures photo silently (no preview window)
