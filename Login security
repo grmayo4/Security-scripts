@@ -1,5 +1,7 @@
 #Below is a working Windows Python example that:
-
+#This script:
+#❌ Does NOT integrate with the actual Windows login screen
+#✅ Works inside a Python login program
 #Prompts for password
 #Counts failed attempts
 #Captures webcam photo on 3rd failure
