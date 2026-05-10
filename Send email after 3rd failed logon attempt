@@ -5,6 +5,7 @@
 # ==========================================
 # Failed Login Email Alert Script
 # Sends alert after 3 failed login attempts
+# over what period of time?
 # ==========================================
 
 # Email settings
