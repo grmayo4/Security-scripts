@@ -1,0 +1,94 @@
+# ==========================================
+# Audible Alarm on 6 Failed Login Attempts
+# Windows Security Event ID 4625 Monitor
+# ==========================================
+
+# Threshold settings
+$threshold = 6
+$windowMinutes = 30
+
+# Hashtable to track failures
+$failedAttempts = @{}
+
+# Load sound library
+Add-Type -AssemblyName System.Media
+
+# Pull failed login events
+$events = Get-WinEvent -FilterHashtable @{
+    LogName = 'Security'
+    ID = 4625
+    StartTime = (Get-Date).AddMinutes(-$windowMinutes)
+}
+
+foreach ($event in $events) {
+
+    $xml = [xml]$event.ToXml()
+
+    $targetUser = (
+        $xml.Event.EventData.Data |
+        Where-Object { $_.Name -eq "TargetUserName" }
+    ).'#text'
+
+    $ipAddress = (
+        $xml.Event.EventData.Data |
+        Where-Object { $_.Name -eq "IpAddress" }
+    ).'#text'
+
+    if ([string]::IsNullOrWhiteSpace($targetUser)) {
+        continue
+    }
+
+    $key = "$targetUser|$ipAddress"
+
+    if ($failedAttempts.ContainsKey($key)) {
+        $failedAttempts[$key]++
+    }
+    else {
+        $failedAttempts[$key] = 1
+    }
+}
+
+# Trigger alarm if threshold reached
+foreach ($entry in $failedAttempts.GetEnumerator()) {
+
+    if ($entry.Value -ge $threshold) {
+
+        $parts = $entry.Key.Split("|")
+        $user = $parts[0]
+        $ip = $parts[1]
+
+        Write-Host "ALERT: Excessive failed login attempts detected!"
+        Write-Host "User: $user"
+        Write-Host "IP Address: $ip"
+        Write-Host "Attempts: $($entry.Value)"
+
+        # Audible alarm loop
+        for ($i = 1; $i -le 10; $i++) {
+
+            # System beep
+            [console]::beep(1200, 700)
+
+            Start-Sleep -Milliseconds 300
+        }
+
+        # Optional popup alert
+        Add-Type -AssemblyName PresentationFramework
+
+        [System.Windows.MessageBox]::Show(
+            "WARNING: Multiple failed login attempts detected.`n`nUser: $user`nIP: $ip",
+            "Security Alert",
+            "OK",
+            "Warning"
+        )
+    }
+}
+#How it works
+#Monitors Windows Security Log for:
+#Event ID 4625 (failed logon)
+#Counts failures within the last 30 minutes
+#Triggers after 6 failed attempts
+#Sounds an audible alarm using the system speaker
+#Displays a popup warning
+#Run requirements
+#PowerShell running as Administrator
+#Windows auditing enabled for failed logins
