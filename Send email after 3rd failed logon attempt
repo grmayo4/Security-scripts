@@ -1,0 +1,111 @@
+#Here’s a defensive PowerShell script that monitors the Windows Security Event Log for failed login attempts (Event ID 4625) and sends an email alert after 3 failed attempts from the same username or IP address.
+
+#This is intended for legitimate security monitoring and auditing on systems you own or administer.
+
+# ==========================================
+# Failed Login Email Alert Script
+# Sends alert after 3 failed login attempts
+# ==========================================
+
+# Email settings
+$smtpServer = "smtp.gmail.com"
+$smtpPort = 587
+$fromEmail = "youremail@gmail.com"
+$toEmail = "admin@company.com"
+$username = "youremail@gmail.com"
+$password = "YOUR_APP_PASSWORD"
+
+# Track failed attempts
+$failedAttempts = @{}
+
+# Time window (minutes)
+$windowMinutes = 15
+
+# Get failed login events from Security Log
+$events = Get-WinEvent -FilterHashtable @{
+    LogName = 'Security'
+    ID = 4625
+    StartTime = (Get-Date).AddMinutes(-$windowMinutes)
+}
+
+foreach ($event in $events) {
+
+    $xml = [xml]$event.ToXml()
+
+    $targetUser = (
+        $xml.Event.EventData.Data |
+        Where-Object { $_.Name -eq "TargetUserName" }
+    ).'#text'
+
+    $ipAddress = (
+        $xml.Event.EventData.Data |
+        Where-Object { $_.Name -eq "IpAddress" }
+    ).'#text'
+
+    if ([string]::IsNullOrWhiteSpace($targetUser)) {
+        continue
+    }
+
+    $key = "$targetUser|$ipAddress"
+
+    if ($failedAttempts.ContainsKey($key)) {
+        $failedAttempts[$key]++
+    }
+    else {
+        $failedAttempts[$key] = 1
+    }
+}
+
+# Check for threshold
+foreach ($entry in $failedAttempts.GetEnumerator()) {
+
+    if ($entry.Value -ge 3) {
+
+        $parts = $entry.Key.Split("|")
+        $user = $parts[0]
+        $ip = $parts[1]
+
+        $subject = "ALERT: Multiple Failed Login Attempts"
+        $body = @"
+Three or more failed login attempts detected.
+
+Username: $user
+IP Address: $ip
+Attempts: $($entry.Value)
+
+Time: $(Get-Date)
+
+Please investigate immediately.
+"@
+
+        # Secure password
+        $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+        $credential = New-Object System.Management.Automation.PSCredential($username, $securePassword)
+
+        # Send email
+        Send-MailMessage `
+            -From $fromEmail `
+            -To $toEmail `
+            -Subject $subject `
+            -Body $body `
+            -SmtpServer $smtpServer `
+            -Port $smtpPort `
+            -UseSsl `
+            -Credential $credential
+
+        Write-Host "Alert email sent for user $user"
+    }
+}
+#Notes
+#Requires Administrator privileges to read the Security log.
+#For Gmail, use an App Password instead of your normal password.
+#You can schedule this script using Windows Task Scheduler to run every few minutes.
+#Event ID 4625 is the standard Windows failed logon event.
+
+#Example Task Scheduler trigger:
+
+#Run every 5 minutes
+
+#Action:
+
+#powershell.exe -ExecutionPolicy Bypass -File "C:\Scripts\FailedLoginAlert.ps1"
