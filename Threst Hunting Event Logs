@@ -1,0 +1,26 @@
+# Define log path and search pattern
+$logPath = "C:\path\to\your\logfile.log"
+$searchPattern = "ERROR" # Change to your target event, ID, or text
+$outputPath = "C:\path\to\output_results.txt"
+
+# Verify the log file exists before parsing
+if (Test-Path $logPath) {
+    write-host "Scanning $logPath for '$searchPattern'..." -ForegroundColor Cyan
+
+    # Stream the file to handle large logs efficiently
+    # Select-String extracts matching lines and properties
+    $matches = Get-Content $logPath | Select-String -Pattern $searchPattern
+
+    if ($matches) {
+        # Output count of found events
+        Write-Host "Found $($matches.Count) matching events." -ForegroundColor Green
+        
+        # Save matches to a text file
+        $matches | Out-File -FilePath $outputPath
+        Write-Host "Results saved to $outputPath" -ForegroundColor Green
+    } else {
+        Write-Host "No matching events found." -ForegroundColor Yellow
+    }
+} else {
+    Write-Error "Log file not found at $logPath"
+}
